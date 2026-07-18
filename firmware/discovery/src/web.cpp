@@ -1,37 +1,44 @@
 #include <Arduino.h>
-#include <ESPAsyncWebServer.h>
+#include <WebServer.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
-AsyncWebServer server(80);
+#include "web.h"
+
+WebServer server(80);
+
+void handleInfo()
+{
+    JsonDocument doc;
+
+    doc["chip"] = ESP.getChipModel();
+    doc["cores"] = ESP.getChipCores();
+    doc["revision"] = ESP.getChipRevision();
+    doc["flash_mb"] = ESP.getFlashChipSize() / 1024 / 1024;
+    doc["sdk"] = ESP.getSdkVersion();
+    doc["free_heap"] = ESP.getFreeHeap();
+    doc["wifi_rssi"] = WiFi.RSSI();
+
+    String output;
+
+    serializeJson(doc, output);
+
+    server.send(200, "application/json", output);
+}
 
 void startWeb()
 {
+    server.serveStatic("/", LittleFS, "/", "max-age=600")
+          .setDefaultFile("index.html");
 
-server.serveStatic("/",LittleFS,"/").setDefaultFile("index.html");
+    server.on("/api/info", HTTP_GET, handleInfo);
 
-server.on("/api/info",HTTP_GET,[](AsyncWebServerRequest *request){
+    server.begin();
 
-JsonDocument doc;
+    Serial.println("Servidor web iniciado");
+}
 
-doc["chip"]="ESP32";
-
-doc["cores"]=ESP.getChipCores();
-
-doc["revision"]=ESP.getChipRevision();
-
-doc["flash"]=ESP.getFlashChipSize()/1024/1024;
-
-doc["sdk"]=ESP.getSdkVersion();
-
-String out;
-
-serializeJson(doc,out);
-
-request->send(200,"application/json",out);
-
-});
-
-server.begin();
-
+void handleWeb()
+{
+    server.handleClient();
 }
